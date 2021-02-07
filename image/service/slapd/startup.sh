@@ -147,7 +147,7 @@ if [ ! -e "$FIRST_START_DONE" ]; then
   function ldap_add_or_modify (){
     local LDIF_FILE=$1
 
-    log-helper debug "Processing file ${LDIF_FILE}"
+    log-helper info "Processing file ${LDIF_FILE}"
     sed -i "s|{{ LDAP_BASE_DN }}|${LDAP_BASE_DN}|g" $LDIF_FILE
     sed -i "s|{{ LDAP_BACKEND }}|${LDAP_BACKEND}|g" $LDIF_FILE
     sed -i "s|{{ LDAP_DOMAIN }}|${LDAP_DOMAIN}|g" $LDIF_FILE
@@ -156,9 +156,9 @@ if [ ! -e "$FIRST_START_DONE" ]; then
       sed -i "s|{{ LDAP_READONLY_USER_PASSWORD_ENCRYPTED }}|${LDAP_READONLY_USER_PASSWORD_ENCRYPTED}|g" $LDIF_FILE
     fi
     if grep -iq changetype $LDIF_FILE ; then
-        ( ldapmodify -Y EXTERNAL -Q -H ldapi:/// -f $LDIF_FILE 2>&1 || ldapmodify -h localhost -p 389 -D cn=admin,$LDAP_BASE_DN -w "$LDAP_ADMIN_PASSWORD" -f $LDIF_FILE 2>&1 ) | log-helper debug
+        ( ldapmodify -Y EXTERNAL -Q -H ldapi:/// -f $LDIF_FILE 2>&1 || ldapmodify -h localhost -p 389 -D cn=admin,$LDAP_BASE_DN -w "$LDAP_ADMIN_PASSWORD" -f $LDIF_FILE 2>&1 ) | log-helper info
     else
-        ( ldapadd -Y EXTERNAL -Q -H ldapi:/// -f $LDIF_FILE 2>&1 || ldapadd -h localhost -p 389 -D cn=admin,$LDAP_BASE_DN -w "$LDAP_ADMIN_PASSWORD" -f $LDIF_FILE 2>&1 ) | log-helper debug
+        ( ldapadd -Y EXTERNAL -Q -H ldapi:/// -f $LDIF_FILE 2>&1 || ldapadd -h localhost -p 389 -D cn=admin,$LDAP_BASE_DN -w "$LDAP_ADMIN_PASSWORD" -f $LDIF_FILE 2>&1 ) | log-helper info
     fi
   }
 
@@ -277,7 +277,7 @@ EOF
     if [ -e "$WAS_STARTED_WITH_TLS" ]; then
       source $WAS_STARTED_WITH_TLS
 
-      log-helper debug "Check previous TLS certificates..."
+      log-helper info "Check previous TLS certificates..."
 
       # fix for #73
       # image started with an existing database/config created before 1.1.5
@@ -298,10 +298,10 @@ EOF
     # start OpenLDAP
     log-helper info "Start OpenLDAP..."
     # At this stage, we can just listen to ldap:// and ldap:// without naming any names
-    if log-helper level ge debug; then
+    if log-helper level ge info; then
       slapd -h "ldap:/// ldapi:/// ldaps:///" -u openldap -g openldap -d "$LDAP_LOG_LEVEL" 2>&1 &
     else
-      slapd -h "ldap:/// ldapi:///" -u openldap -g openldap
+      slapd -h "ldap:/// ldapi:///" -u openldap -g openldap &
     fi
 
 
@@ -316,7 +316,7 @@ EOF
       log-helper info "Add bootstrap schemas..."
 
       # add ppolicy schema
-      ldapadd -c -Y EXTERNAL -Q -H ldapi:/// -f /etc/ldap/schema/ppolicy.ldif 2>&1 | log-helper debug
+      ldapadd -c -Y EXTERNAL -Q -H ldapi:/// -f /etc/ldap/schema/ppolicy.ldif 2>&1 | log-helper info
 
       # convert schemas to ldif
       SCHEMAS=""
@@ -327,12 +327,12 @@ EOF
 
       # add converted schemas
       for f in $(find ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/schema -name \*.ldif -type f|sort); do
-        log-helper debug "Processing file ${f}"
+        log-helper info "Processing file ${f}"
         # add schema if not already exists
         SCHEMA=$(basename "${f}" .ldif)
         ADD_SCHEMA=$(is_new_schema $SCHEMA)
         if [ "$ADD_SCHEMA" -eq 1 ]; then
-          ldapadd -c -Y EXTERNAL -Q -H ldapi:/// -f $f 2>&1 | log-helper debug
+          ldapadd -c -Y EXTERNAL -Q -H ldapi:/// -f $f 2>&1 | log-helper info
         else
           log-helper info "schema ${f} already exists"
         fi
@@ -349,7 +349,7 @@ EOF
       # process config files (*.ldif) in bootstrap directory (do no process files in subdirectories)
       log-helper info "Add image bootstrap ldif..."
       for f in $(find ${CONTAINER_SERVICE_DIR}/slapd/assets/config/bootstrap/ldif -mindepth 1 -maxdepth 1 -type f -name \*.ldif  | sort); do
-        log-helper debug "Processing file ${f}"
+        log-helper info "Processing file ${f}"
         ldap_add_or_modify "$f"
       done
 
@@ -411,7 +411,7 @@ EOF
       sed -i "s|{{ LDAP_TLS_CIPHER_SUITE }}|${LDAP_TLS_CIPHER_SUITE}|g" ${CONTAINER_SERVICE_DIR}/slapd/assets/config/tls/tls-enable.ldif
       sed -i "s|{{ LDAP_TLS_VERIFY_CLIENT }}|${LDAP_TLS_VERIFY_CLIENT}|g" ${CONTAINER_SERVICE_DIR}/slapd/assets/config/tls/tls-enable.ldif
 
-      ldapmodify -Y EXTERNAL -Q -H ldapi:/// -f ${CONTAINER_SERVICE_DIR}/slapd/assets/config/tls/tls-enable.ldif 2>&1 | log-helper debug
+      ldapmodify -Y EXTERNAL -Q -H ldapi:/// -f ${CONTAINER_SERVICE_DIR}/slapd/assets/config/tls/tls-enable.ldif 2>&1 | log-helper info
 
       [[ -f "$WAS_STARTED_WITH_TLS" ]] && rm -f "$WAS_STARTED_WITH_TLS"
       echo "export PREVIOUS_LDAP_TLS_CA_CRT_PATH=${LDAP_TLS_CA_CRT_PATH}" > $WAS_STARTED_WITH_TLS
@@ -422,7 +422,7 @@ EOF
       # enforce TLS
       if [ "${LDAP_TLS_ENFORCE,,}" == "true" ]; then
         log-helper info "Add enforce TLS..."
-        ldapmodify -Y EXTERNAL -Q -H ldapi:/// -f ${CONTAINER_SERVICE_DIR}/slapd/assets/config/tls/tls-enforce-enable.ldif 2>&1 | log-helper debug
+        ldapmodify -Y EXTERNAL -Q -H ldapi:/// -f ${CONTAINER_SERVICE_DIR}/slapd/assets/config/tls/tls-enforce-enable.ldif 2>&1 | log-helper info
         touch $WAS_STARTED_WITH_TLS_ENFORCE
 
       # disable tls enforcing (not possible for now)
@@ -447,7 +447,7 @@ EOF
 
     function disableReplication() {
       sed -i "s|{{ LDAP_BACKEND }}|${LDAP_BACKEND}|g" ${CONTAINER_SERVICE_DIR}/slapd/assets/config/replication/replication-disable.ldif
-      ldapmodify -c -Y EXTERNAL -Q -H ldapi:/// -f ${CONTAINER_SERVICE_DIR}/slapd/assets/config/replication/replication-disable.ldif 2>&1 | log-helper debug || true
+      ldapmodify -c -Y EXTERNAL -Q -H ldapi:/// -f ${CONTAINER_SERVICE_DIR}/slapd/assets/config/replication/replication-disable.ldif 2>&1 | log-helper info || true
       [[ -f "$WAS_STARTED_WITH_REPLICATION" ]] && rm -f "$WAS_STARTED_WITH_REPLICATION"
     }
 
@@ -477,7 +477,7 @@ EOF
 
       sed -i "s|{{ LDAP_BACKEND }}|${LDAP_BACKEND}|g" ${CONTAINER_SERVICE_DIR}/slapd/assets/config/replication/replication-enable.ldif
 
-      ldapmodify -c -Y EXTERNAL -Q -H ldapi:/// -f ${CONTAINER_SERVICE_DIR}/slapd/assets/config/replication/replication-enable.ldif 2>&1 | log-helper debug || true
+      ldapmodify -c -Y EXTERNAL -Q -H ldapi:/// -f ${CONTAINER_SERVICE_DIR}/slapd/assets/config/replication/replication-enable.ldif 2>&1 | log-helper info || true
 
       [[ -f "$WAS_STARTED_WITH_REPLICATION" ]] && rm -f "$WAS_STARTED_WITH_REPLICATION"
       echo "export PREVIOUS_HOSTNAME=${HOSTNAME}" > $WAS_STARTED_WITH_REPLICATION
@@ -559,8 +559,40 @@ if [ "$FQDN" != "$HOSTNAME" ]; then
 else
     FQDN_PARAM=""
 fi
-ETC_HOSTS=$(cat /etc/hosts | sed "/$HOSTNAME/d")
-echo "0.0.0.0 $FQDN_PARAM $HOSTNAME" > /etc/hosts
+
+# TH 
+# see: https://github.com/osixia/docker-openldap/issues/252
+
+# ETC_HOSTS=$(cat /etc/hosts | sed "/$HOSTNAME/d")
+# echo "0.0.0.0 $FQDN_PARAM $HOSTNAME" > /etc/hosts
+# echo "$ETC_HOSTS" >> /etc/hosts
+
+# Exit with an error if HOSTNAME is unset or empty. Otherwise, /etc/hosts will get mostly overwritten.
+[[ -z ${HOSTNAME} ]] && { echo "HOSTNAME is unset or empty. Please set it and try again."; exit 1; }
+
+# Get the IP of this host
+IP_OLD=$(getent hosts $HOSTNAME | awk '{print $1}') # use getent first. xargs trims here.
+IP_OLD=${IP_OLD:-$(hostname -I | awk '{print $1}' | xargs)} # if previous command returned null, use hostname -I and keep first result only
+IP_NEW=$([[ $IP_OLD == *:* ]] && echo '::' || echo '0.0.0.0') # try to retain ipv4 or ipv6
+
+# If set, get both FQDN and short name -- i.e., get canonical hostname and short name alias
+if hostname -f &>/dev/null; then 
+	  [[ $(hostname -f) == $(hostname -s) ]] && names="$(hostname -s)" || names=$(printf "$(hostname -f)\t$(hostname -s)")
+  else
+	    # hostname -f failed, so concat the values from getent and hostname commands
+	      names="$(getent hosts ${IP_OLD} | awk '{print $2}') $(hostname)"
+	        names=$(echo $(printf '%s\n' $names | sort -ur)) # remove any duplicates. sort longest results (fqdn) first
+fi
+
+# Comment out any /etc/hosts lines containing this host's IP (not hostname, which may legitimately match multiple lines: eg ipv4 and ipv6)
+if grep -q "${IP_OLD}" /etc/hosts; then
+	  ETC_HOSTS=$(sed -e "/^${IP_OLD}*/ s/^#*/\n\# Commented out by startup.sh\n#/" /etc/hosts)
+	  else
+		    ETC_HOSTS=$(cat /etc/hosts)
+fi
+
+# force OpenLDAP to listen on all interfaces 
+printf "# Added by startup.sh\n%s\t%s\n\n" "$IP_NEW" "${names}" > /etc/hosts
 echo "$ETC_HOSTS" >> /etc/hosts
 
 exit 0
