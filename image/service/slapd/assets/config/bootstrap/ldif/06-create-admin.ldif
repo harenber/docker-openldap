@@ -1,0 +1,7 @@
+dn: cn=admin,{{ LDAP_BASE_DN }}
+changetype: add
+cn: admin
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+userPassword: {{ LDAP_CONFIG_PASSWORD_ENCRYPTED }}
+description: admin user
