@@ -301,7 +301,7 @@ EOF
     if log-helper level ge info; then
       slapd -h "ldap:/// ldapi:/// ldaps:///" -u openldap -g openldap -d "$LDAP_LOG_LEVEL" 2>&1 &
     else
-      slapd -h "ldap:/// ldapi:///" -u openldap -g openldap &
+      slapd -h "ldap:/// ldapi:/// ldaps:///" -u openldap -g openldap &
     fi
 
 
