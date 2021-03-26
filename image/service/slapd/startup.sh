@@ -578,30 +578,48 @@ fi
 # TH 
 # see: https://github.com/osixia/docker-openldap/issues/252
 
+
 # ETC_HOSTS=$(cat /etc/hosts | sed "/$HOSTNAME/d")
 # echo "0.0.0.0 $FQDN_PARAM $HOSTNAME" > /etc/hosts
 # echo "$ETC_HOSTS" >> /etc/hosts
 
+log-helper info "IP blubb hostname = $HOSTNAME"
+echo `getent hosts $HOSTNAME`
 # Exit with an error if HOSTNAME is unset or empty. Otherwise, /etc/hosts will get mostly overwritten.
 [[ -z ${HOSTNAME} ]] && { echo "HOSTNAME is unset or empty. Please set it and try again."; exit 1; }
 
 # Get the IP of this host
-IP_OLD=$(getent hosts $HOSTNAME | awk '{print $1}') # use getent first. xargs trims here.
+IP_OLD=$(getent hosts $HOSTNAME | awk '{print $1}' | uniq) # use getent first. xargs trims here.
+log-helper info "IP blubb 2 $IP_OLD"
 IP_OLD=${IP_OLD:-$(hostname -I | awk '{print $1}' | xargs)} # if previous command returned null, use hostname -I and keep first result only
+log-helper info "IP blubb 3 $IP_OLD"
 IP_NEW=$([[ $IP_OLD == *:* ]] && echo '::' || echo '0.0.0.0') # try to retain ipv4 or ipv6
+log-helper info "IP blubb 4"
 
 # If set, get both FQDN and short name -- i.e., get canonical hostname and short name alias
-if hostname -f &>/dev/null; then 
-	  [[ $(hostname -f) == $(hostname -s) ]] && names="$(hostname -s)" || names=$(printf "$(hostname -f)\t$(hostname -s)")
+if hostname -f &>/dev/null; then
+    log-helper info "IP blubb 5"
+
+    [[ $(hostname -f) == $(hostname -s) ]] && names="$(hostname -s)" || names=$(printf "$(hostname -f)\t$(hostname -s)")
+    log-helper info "IP blubb 6"
+
   else
-	    # hostname -f failed, so concat the values from getent and hostname commands
-	      names="$(getent hosts ${IP_OLD} | awk '{print $2}') $(hostname)"
-	        names=$(echo $(printf '%s\n' $names | sort -ur)) # remove any duplicates. sort longest results (fqdn) first
+      hostname -f failed, so concat the values from getent and hostname commands
+      log-helper info "IP blubb 7"
+      names="$(getent hosts ${IP_OLD} | awk '{print $2}') $(hostname)"
+      log-helper info "IP blubb 8"      
+      names=$(echo $(printf '%s\n' $names | sort -ur)) # remove any duplicates. sort longest results (fqdn) first
 fi
 
 # Comment out any /etc/hosts lines containing this host's IP (not hostname, which may legitimately match multiple lines: eg ipv4 and ipv6)
+    log-helper info "IP_OLD: $IP_OLD"
+    cat /etc/hosts
+
 if grep -q "${IP_OLD}" /etc/hosts; then
+    log-helper info "IP blubb 9"
+
 	  ETC_HOSTS=$(sed -e "/^${IP_OLD}*/ s/^#*/\n\# Commented out by startup.sh\n#/" /etc/hosts)
+    log-helper info "IP blubb 10"
 	  else
 		    ETC_HOSTS=$(cat /etc/hosts)
 fi
@@ -609,5 +627,6 @@ fi
 # force OpenLDAP to listen on all interfaces 
 printf "# Added by startup.sh\n%s\t%s\n\n" "$IP_NEW" "${names}" > /etc/hosts
 echo "$ETC_HOSTS" >> /etc/hosts
+log-helper info "IP blubb ende"
 
 exit 0
